@@ -7,23 +7,29 @@ import com.sistema.clients.model.request.ClientsRequest;
 import com.sistema.clients.model.response.ClientsResponse;
 import com.sistema.clients.repository.ClientsRepository;
 import com.sistema.clients.service.ClientsService;
+import io.github.resilience4j.retry.annotation.Retry;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class ClientsServiceImpl implements ClientsService {
 
     private static final String EXCEPTION_ERROR = "ID inexistente na base de dados";
 
-    @Autowired
-    private ClientsRepository clientsRepository;
+    private final ClientsRepository clientsRepository;
 
-    @Autowired
     private ClientsMapper clientsMapper;
 
     @Override
@@ -73,12 +79,26 @@ public class ClientsServiceImpl implements ClientsService {
 
             clientsForm = ClientsMapper.mapRequestClient(clientsRequest);
 
-            clientsRepository.save(clientsForm);
+            saveDocuments(clientsForm);
 
             return ClientsMapper.mapResponseClient(clientsForm);
         }catch (Exception ex){
             throw new DBException(new RuntimeException("erro de base de dados"));
         }
+    }
+
+//    @Retry(name = "clientsDBRetry", fallbackMethod = "registryErrorFallback")
+    @Retry(name = "clientsDBRetry")
+    public void saveDocuments(ClientsEntity clientsEntity){
+        try {
+            clientsRepository.save(clientsEntity);
+        }catch (Exception ex){
+            throw new DBException(new RuntimeException("erro de base de dados"));
+        }
+    }
+
+    public void registryErrorFallback(ClientsEntity clientsEntity, RestClientException restClientException){
+        log.error(String.format("Tentativas de envio falha: %s\n $s", clientsEntity.getCpf(), restClientException.getMessage()));
     }
 
     @CacheEvict(

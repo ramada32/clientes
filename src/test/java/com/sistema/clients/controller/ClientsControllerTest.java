@@ -4,23 +4,33 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sistema.clients.exceptions.CustomExceptionHandler;
 import com.sistema.clients.exceptions.DBException;
 import com.sistema.clients.model.Enum.ClientTypeEnum;
+import com.sistema.clients.model.entity.ClientsEntity;
+import com.sistema.clients.model.entity.EmployeeEntity;
 import com.sistema.clients.model.request.ClientsRequest;
 import com.sistema.clients.model.response.ClientsResponse;
 import com.sistema.clients.model.response.MessageResponse;
+import com.sistema.clients.repository.ClientsRepository;
 import com.sistema.clients.service.ClientsService;
 import com.sistema.clients.utils.ObjectMapperUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import io.github.resilience4j.retry.RetryRegistry;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.hamcrest.core.Is.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -35,15 +45,22 @@ import java.util.UUID;
 @ExtendWith(MockitoExtension.class)
 public class ClientsControllerTest {
 
-//    @InjectMocks
-//    private ClientsController clientsController;
+    @InjectMocks
+    private ClientsController clientsController;
 
     @Mock
     private ClientsService clientsService;
 
+    @Mock
+    private ClientsRepository clientsRepository;
+
     private MockMvc mockMvc;
 
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private RetryRegistry retryRegistry;
+
 
 
     @BeforeEach
@@ -219,5 +236,34 @@ public class ClientsControllerTest {
                 .cpf("asdas").build();
 
         return clientResponse;
+    }
+
+    @Test
+    public void testSaveRetry() {
+
+        EmployeeEntity employee = new EmployeeEntity();
+        employee.setId(2);
+        employee.setName("sadas");
+        employee.setSalary(new BigDecimal(12));
+
+        ClientsEntity clientsEntity = ClientsEntity.builder()
+                .clientTypeEnum(ClientTypeEnum.LIMPO)
+                .cpf("234234234")
+                .id(1)
+                .phone("sadasd")
+                .dateBirth(LocalDateTime.of(2022,01,01,1,1))
+                .name("felipe")
+                .employee(employee)
+                .invoice(new BigDecimal(1))
+                .address("test").build();
+
+        doThrow(DBException.class).when(clientsService).insert(getClientRequest());
+
+        try {
+            clientsController.insert(getClientRequest());
+        } catch (Exception ignored) {
+        } finally {
+            verify(clientsRepository, times(2)).save(clientsEntity);
+        }
     }
 }
