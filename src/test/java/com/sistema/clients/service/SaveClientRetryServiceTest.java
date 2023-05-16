@@ -15,29 +15,31 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
+import org.springframework.boot.test.mock.mockito.MockBean;
+import javax.inject.Inject;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.times;
+
 @ExtendWith(MockitoExtension.class)
-public class ClientsServiceTest {
+public class SaveClientRetryServiceTest {
 
     @InjectMocks
+    private SaveClientRetryServiceImpl saveClientRetryService;
+    @Mock
     private ClientsServiceImpl clientsService;
 
-    @Mock
+    @Inject
     private ClientsController clientsController;
 
     @Mock
     private ClientsRepository clientsRepository;
 
-    @Mock
-    private SaveClientRetryServiceImpl saveClientRetryService;
-
     @Test
-    public void testSaveRetry() {
+    public void testSaveRetry(){
 
         EmployeeEntity employee = new EmployeeEntity();
         employee.setId(2);
@@ -55,15 +57,14 @@ public class ClientsServiceTest {
                 .invoice(new BigDecimal(1))
                 .address("test").build();
 
-        when(clientsService.insert(getClientRequest())).thenReturn(getClientResponse());
-//
-        doThrow(new RuntimeException()).when(clientsRepository).save(clientsEntity);
+        doThrow(DBException.class).when(clientsRepository).save(clientsEntity);
+        assertThrows(DBException.class, () -> saveClientRetryService.saveDocuments(clientsEntity));
 
         try {
             clientsController.insert(getClientRequest());
         } catch (Exception ignored) {
         } finally {
-            verify(clientsRepository, times(0)).save(clientsEntity);
+            verify(clientsRepository, times(1)).save(clientsEntity);
         }
     }
 

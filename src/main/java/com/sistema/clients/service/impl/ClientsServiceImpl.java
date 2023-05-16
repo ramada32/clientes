@@ -7,6 +7,7 @@ import com.sistema.clients.model.request.ClientsRequest;
 import com.sistema.clients.model.response.ClientsResponse;
 import com.sistema.clients.repository.ClientsRepository;
 import com.sistema.clients.service.ClientsService;
+import com.sistema.clients.service.SaveClientRetryService;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
@@ -29,6 +30,8 @@ public class ClientsServiceImpl implements ClientsService {
     private static final String EXCEPTION_ERROR = "ID inexistente na base de dados";
 
     private final ClientsRepository clientsRepository;
+
+    private final SaveClientRetryService saveClientRetryService;
 
     private ClientsMapper clientsMapper;
 
@@ -79,7 +82,7 @@ public class ClientsServiceImpl implements ClientsService {
 
             clientsForm = ClientsMapper.mapRequestClient(clientsRequest);
 
-            saveDocuments(clientsForm);
+            saveClientRetryService.saveDocuments(clientsForm);
 
             return ClientsMapper.mapResponseClient(clientsForm);
         }catch (Exception ex){
@@ -87,19 +90,6 @@ public class ClientsServiceImpl implements ClientsService {
         }
     }
 
-//    @Retry(name = "clientsDBRetry", fallbackMethod = "registryErrorFallback")
-    @Retry(name = "clientsDBRetry")
-    public void saveDocuments(ClientsEntity clientsEntity){
-        try {
-            clientsRepository.save(clientsEntity);
-        }catch (Exception ex){
-            throw new DBException(new RuntimeException("erro de base de dados"));
-        }
-    }
-
-    public void registryErrorFallback(ClientsEntity clientsEntity, RestClientException restClientException){
-        log.error(String.format("Tentativas de envio falha: %s\n $s", clientsEntity.getCpf(), restClientException.getMessage()));
-    }
 
     @CacheEvict(
             cacheManager = "redisCacheManager",

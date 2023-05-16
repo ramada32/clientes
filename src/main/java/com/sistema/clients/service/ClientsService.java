@@ -11,5 +11,4 @@ public interface ClientsService {
     ClientsResponse consultClientId(Integer id);
     ClientsResponse insert(ClientsRequest clientsRequest);
     ClientsResponse update(Integer id, ClientsRequest clientsRequest);
-    void saveDocuments(ClientsEntity clientsEntity);
 }

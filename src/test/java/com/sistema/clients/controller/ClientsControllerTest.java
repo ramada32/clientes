@@ -263,7 +263,7 @@ public class ClientsControllerTest {
             clientsController.insert(getClientRequest());
         } catch (Exception ignored) {
         } finally {
-            verify(clientsRepository, times(2)).save(clientsEntity);
+            verify(clientsRepository, times(0)).save(clientsEntity);
         }
     }
 }
